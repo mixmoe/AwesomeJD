@@ -5,10 +5,13 @@ LABEL AUTHOR="none" \
 
 ENV DEFAULT_LIST_FILE=crontab_list.sh \
     NPM_REGISTRY=https://registry.npm.taobao.org \
+    ALPINE_REPO=mirrors.tuna.tsinghua.edu.cn \
     CUSTOM_LIST_MERGE_TYPE=append \
     COOKIES_LIST=/scripts/logs/cookies.list \
+    REPO_URL=https://github.com/mixmoe/AwesomeJD
 
 RUN set -ex \
+    && sed -i "s/dl-cdn.alpinelinux.org/$ALPINE_REPO/g" /etc/apk/repositories \
     && apk update \
     && apk upgrade \
     && apk add --no-cache bash tzdata git moreutils curl jq openssh-client \
@@ -16,8 +19,12 @@ RUN set -ex \
     && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone \
 
+COPY ./src /src
+
+COPY ./scripts /scripts
+
 RUN set -ex \
-    cd /src \
+    && cd /src \
     && mkdir logs \
     && npm config set registry $NPM_REGISTRY \
     && npm install \

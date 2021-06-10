@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/bin/bash -exv
+set -exv
 
 # 放在这个初始化python3环境，目的减小镜像体积，一些不需要使用bot交互的用户可以不用拉体积比较大的镜像
 # 在这个任务里面还有初始化还有目的就是为了方便bot更新了新功能的话只需要重启容器就完成更新
@@ -10,7 +10,7 @@ function initPythonEnv() {
   #测试
   #cd /jd_docker/docker/bot
   #合并
-  cd /scripts/docker/bot
+  cd /scripts/bot
   pip3 install --upgrade pip
   pip3 install -r requirements.txt
   python3 setup.py install
@@ -65,7 +65,7 @@ EOF
     fi
   fi
 
-  CODE_GEN_CONF=/scripts/logs/code_gen_conf.list
+  CODE_GEN_CONF=/logs/code_gen_conf.list
   echo "生成互助消息需要使用的到的 logs/code_gen_conf.list 文件，后续需要自己根据说明维护更新删除..."
   if [ ! -f "$CODE_GEN_CONF" ]; then
     (
@@ -108,17 +108,18 @@ EOF
   fi
 
   echo "容器jd_bot交互所需环境已配置安装已完成..."
-  curl -sX POST "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" -d "chat_id=$TG_USER_ID&text=恭喜🎉你获得feature容器jd_bot交互所需环境已配置安装已完成，并启用。请发送 /help 查看使用帮助。如需禁用请在docker-compose.yml配置 DISABLE_BOT_COMMAND=True" >>/dev/null
+  curl -sX POST "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
+    -d "chat_id=$TG_USER_ID&text=恭喜🎉你获得feature容器jd_bot交互所需环境已配置安装已完成，并启用。请发送 /help 查看使用帮助。如需禁用请在docker-compose.yml配置 DISABLE_BOT_COMMAND=True" >>/dev/null
 
 fi
 
 #echo "暂停更新配置，不要尝试删掉这个文件，你的容器可能会起不来"
-#echo '' >/scripts/logs/pull.lock
+#echo '' >/logs/pull.lock
 
 echo "定义定时任务合并处理用到的文件路径..."
-defaultListFile="/scripts/docker/$DEFAULT_LIST_FILE"
+defaultListFile="/scripts/$DEFAULT_LIST_FILE"
 echo "默认文件定时任务文件路径为 ${defaultListFile}"
-mergedListFile="/scripts/docker/merged_list_file.sh"
+mergedListFile="/scripts/merged_list_file.sh"
 echo "合并后定时任务文件路径为 ${mergedListFile}"
 
 echo "第1步将默认定时任务列表添加到并后定时任务文件..."
@@ -128,15 +129,15 @@ echo "第2步判断是否存在自定义任务任务列表并追加..."
 if [ $CUSTOM_LIST_FILE ]; then
   echo "您配置了自定义任务文件：$CUSTOM_LIST_FILE，自定义任务类型为：$CUSTOM_LIST_MERGE_TYPE..."
   # 无论远程还是本地挂载, 均复制到 $customListFile
-  customListFile="/scripts/docker/custom_list_file.sh"
+  customListFile="/scripts/custom_list_file.sh"
   echo "自定义定时任务文件临时工作路径为 ${customListFile}"
   if expr "$CUSTOM_LIST_FILE" : 'http.*' &>/dev/null; then
     echo "自定义任务文件为远程脚本，开始下载自定义远程任务。"
     wget -O $customListFile $CUSTOM_LIST_FILE
     echo "下载完成..."
-  elif [ -f /scripts/docker/$CUSTOM_LIST_FILE ]; then
+  elif [ -f /scripts/$CUSTOM_LIST_FILE ]; then
     echo "自定义任务文件为本地挂载。"
-    cp /scripts/docker/$CUSTOM_LIST_FILE $customListFile
+    cp /scripts/$CUSTOM_LIST_FILE $customListFile
   fi
 
   if [ -f "$customListFile" ]; then
@@ -171,12 +172,12 @@ echo "第4步判断是否配置自定义shell执行脚本..."
 if [ 0"$CUSTOM_SHELL_FILE" = "0" ]; then
   echo "未配置自定shell脚本文件，跳过执行。"
 else
-  if expr "$CUSTOM_SHELL_FILE" : 'http.*' &>/dev/null; then
+  if expr "$CUSTOM_SHELL_FILE" : 'http.*' &> /dev/null; then
     echo "自定义shell脚本为远程脚本，开始下载自定义远程脚本。"
-    wget -O /scripts/docker/shell_script_mod.sh $CUSTOM_SHELL_FILE
+    wget -O /scripts/shell_script_mod.sh $CUSTOM_SHELL_FILE
     echo "下载完成，开始执行..."
-    echo "#远程自定义shell脚本追加定时任务" >>$mergedListFile
-    sh -x /scripts/docker/shell_script_mod.sh
+    echo "#远程自定义shell脚本追加定时任务" >> $mergedListFile
+    sh -x /scripts/shell_script_mod.sh
     echo "自定义远程shell脚本下载并执行结束。"
   else
     if [ ! -f $CUSTOM_SHELL_FILE ]; then
@@ -214,7 +215,7 @@ random_m=$(($RANDOM % 60))
 
 echo "设定 docker_entrypoint.sh cron为："
 echo -e "\n# 必须要的默认定时任务请勿删除" >>$mergedListFile
-echo -e "${random_m} ${random_h} * * * docker_entrypoint.sh >> /scripts/logs/default_task.log 2>&1" | tee -a $mergedListFile
+echo -e "${random_m} ${random_h} * * * docker_entrypoint.sh >> /logs/default_task.log 2>&1" | tee -a $mergedListFile
 
 echo "第7步 自动助力"
 if [ -n "$ENABLE_AUTO_HELP" ]; then
@@ -222,7 +223,7 @@ if [ -n "$ENABLE_AUTO_HELP" ]; then
   if [ "$ENABLE_AUTO_HELP" = "true" ]; then
     echo "开启自动助力"
     #在所有脚本执行前，先执行助力码导出
-    sed -i 's/node/ . \/scripts\/docker\/auto_help.sh export > \/scripts\/logs\/auto_help_export.log \&\& node /g' ${mergedListFile}
+    sed -i 's/node/ . \/scripts\/auto_help.sh export > \/logs\/auto_help_export.log \&\& node /g' ${mergedListFile}
   else
     echo "未开启自动助力"
   fi
@@ -232,7 +233,7 @@ echo "第8步增加 |ts 任务日志输出时间戳..."
 sed -i "/\( ts\| |ts\|| ts\)/!s/>>/\|ts >>/g" $mergedListFile
 
 echo "第9步执行proc_file.sh脚本任务..."
-sh /scripts/docker/proc_file.sh
+sh /scripts/proc_file.sh
 
 echo "第10步加载最新的定时任务文件..."
 if [[ -f /usr/bin/jd_bot && -z "$DISABLE_SPNODE" ]]; then
@@ -244,9 +245,9 @@ fi
 crontab $mergedListFile
 
 echo "第11步将仓库的docker_entrypoint.sh脚本更新至系统/usr/local/bin/docker_entrypoint.sh内..."
-cat /scripts/docker/docker_entrypoint.sh >/usr/local/bin/docker_entrypoint.sh
+cat /scripts/docker_entrypoint.sh > /usr/local/bin/docker_entrypoint.sh
 
 echo "发送通知"
 export NOTIFY_CONTENT=""
-cd /scripts/docker
+cd /scripts
 node notify_docker_user.js

@@ -1,6 +1,6 @@
-const notify = require('../sendNotify');
+const notify = require('../src/sendNotify');
 const fs = require('fs');
-const notifyPath = '/scripts/logs/notify.txt';
+const notifyPath = '/logs/notify.txt';
 async function image_update_notify() {
   if (fs.existsSync(notifyPath)) {
     const content = await fs.readFileSync(`${notifyPath}`, 'utf8');//读取notify.txt内容
